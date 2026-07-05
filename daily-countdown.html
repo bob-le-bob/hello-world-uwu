@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Countdown & To-Do</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #0d00ff;
+      --done: #64748b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg, var(--bg), #1e293b);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: min(100%, 520px);
+      display: grid;
+      gap: 18px;
+    }
+
+    .card {
+      background: rgba(17, 24, 39, 0.95);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.3);
+      backdrop-filter: blur(10px);
+    }
+
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      font-size: 0.8rem;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.7rem;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .countdown {
+      font-size: clamp(2rem, 8vw, 3.1rem);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: white;
+      margin: 6px 0 0;
+    }
+
+    .countdown-label {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: 6px;
+    }
+
+    .todo-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .todo-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .task {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+    }
+
+    .task input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .task input[type="text"] {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 1rem;
+      padding: 2px 0;
+    }
+
+    .task.done input[type="text"] {
+      color: var(--done);
+      text-decoration: line-through;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="card">
+      <div class="eyebrow">Daily countdown</div>
+      <h1>Until the next midnight</h1>
+      <p class="subtitle">This refreshes every second and resets automatically at 12:00 AM.</p>
+      <div id="countdown" class="countdown">00:00:00</div>
+      <div class="countdown-label" id="countdownLabel">Time left today</div>
+    </section>
+
+    <section class="card">
+      <div class="todo-header">
+        <h2 style="margin: 0; font-size: 1.1rem;">Today's to-do list</h2>
+        <span style="color: var(--muted); font-size: 0.9rem;">3 tasks</span>
+      </div>
+      <div class="todo-list" id="todoList"></div>
+    </section>
+  </main>
+
+  <script>
+    const countdownEl = document.getElementById('countdown');
+    const countdownLabel = document.getElementById('countdownLabel');
+    const todoListEl = document.getElementById('todoList');
+    const STORAGE_KEY = 'daily-widget-tasks';
+
+    const defaultTasks = [
+      { text: 'Write one thing down', done: false },
+      { text: 'Take a short break', done: false },
+      { text: 'Finish one small win', done: false }
+    ];
+
+    function getTasks() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (Array.isArray(saved) && saved.length) {
+          return saved;
+        }
+      } catch (error) {
+        console.warn('Could not read tasks from storage', error);
+      }
+      return defaultTasks.map(task => ({ ...task }));
+    }
+
+    let tasks = getTasks();
+
+    function saveTasks() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    }
+
+    function renderTasks() {
+      todoListEl.innerHTML = '';
+      tasks.forEach((task, index) => {
+        const row = document.createElement('label');
+        row.className = `task${task.done ? ' done' : ''}`;
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = !!task.done;
+        checkbox.addEventListener('change', () => {
+          tasks[index].done = checkbox.checked;
+          saveTasks();
+          renderTasks();
+        });
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = task.text;
+        input.placeholder = 'Enter a task';
+        input.addEventListener('input', (event) => {
+          tasks[index].text = event.target.value;
+          saveTasks();
+        });
+
+        row.appendChild(checkbox);
+        row.appendChild(input);
+        todoListEl.appendChild(row);
+      });
+    }
+
+    function updateCountdown() {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 0, 0);
+
+      const diff = nextMidnight - now;
+      const totalSeconds = Math.max(0, Math.floor(diff / 1000));
+
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      countdownEl.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      countdownLabel.textContent = `Time left until ${nextMidnight.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} tomorrow`;
+    }
+
+    renderTasks();
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+  </script>
+</body>
+</html>
