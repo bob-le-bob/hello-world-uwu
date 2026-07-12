@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Handwriting OCR Upload</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, sans-serif;
+      background: #f2f4f7;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 760px;
+      margin: 40px auto;
+      padding: 28px;
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 16px;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 2rem;
+    }
+    p {
+      line-height: 1.6;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    input[type="file"] {
+      display: block;
+      margin-bottom: 18px;
+    }
+    button {
+      padding: 14px 20px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .result-card {
+      margin-top: 26px;
+      padding: 20px;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      background: #f8fafc;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+      padding: 16px;
+      border-radius: 12px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      min-height: 130px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Teacher Handwriting OCR</h1>
+    <p>Upload a scanned exam paper. The backend should process the image with keras-ocr and return the extracted handwriting as text.</p>
+    <form id="uploadForm">
+      <label for="scanFile">Select scanned image</label>
+      <input id="scanFile" name="scanFile" type="file" accept="image/*" required>
+      <button type="submit" id="submitBtn">Upload and Read Handwriting</button>
+    </form>
+    <div id="result" class="result-card" style="display:none;">
+      <h2>Recognized Text</h2>
+      <p id="statusMessage">Waiting for upload...</p>
+      <pre id="ocrOutput"></pre>
+    </div>
+  </div>
+  <script>
+    const form = document.getElementById('uploadForm');
+    const resultPanel = document.getElementById('result');
+    const statusMessage = document.getElementById('statusMessage');
+    const ocrOutput = document.getElementById('ocrOutput');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const fileInput = document.getElementById('scanFile');
+      if (!fileInput.files.length) {
+        alert('Please choose an image file.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('scan', fileInput.files[0]);
+
+      submitBtn.disabled = true;
+      resultPanel.style.display = 'block';
+      statusMessage.textContent = 'Uploading scan and waiting for OCR results...';
+      ocrOutput.textContent = '';
+
+      try {
+        const response = await fetch('/api/handwriting-ocr', {
+          method: 'POST',
+          body: formData
+        });
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`${response.status}: ${text}`);
+        }
+        const data = await response.json();
+        statusMessage.textContent = 'OCR complete. Review the extracted text below.';
+        ocrOutput.textContent = data.text || JSON.stringify(data, null, 2);
+      } catch (error) {
+        statusMessage.textContent = 'OCR failed. Check backend or upload again.';
+        ocrOutput.textContent = error.message;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
